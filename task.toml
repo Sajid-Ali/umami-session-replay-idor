@@ -13,7 +13,7 @@ task_id = "1476"
 instance_id = "umami-session-replay-idor"
 # cyberswe repo is the self-contained task slug (== instance_id), not a URL.
 repo = "umami-session-replay-idor"
-base_commit = ""
+base_commit = "36830bded1c2f565e2d4d80641c0cf8ea2709e59"
 repo_language = "typescript"
 cyberswe_version = "2"
 

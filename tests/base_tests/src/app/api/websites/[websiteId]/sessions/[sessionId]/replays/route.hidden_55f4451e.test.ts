@@ -87,6 +87,45 @@ test('GET checks ownership against the actual websiteId from the URL, not anothe
 });
 
 /**
+ * What: prevents a fix that only calls the permission check when the auth
+ * context carries no share token, unconditionally granting access whenever
+ * any share token is present -- regardless of which website that token
+ * actually grants access to.
+ * How: hits the real exported GET handler with an auth context that carries
+ * a share token scoped to a different website than the one in the URL, with
+ * canViewAuthenticatedWebsite mocked to false (the real, unmocked
+ * canViewWebsite already checks shareToken.websiteId against the requested
+ * websiteId internally, and would correctly deny this combination), and
+ * asserts a 401 plus that getSessionReplays is never called.
+ * Why: canViewAuthenticatedWebsite already handles share-token-based access
+ * internally, so the correct fix delegates to it unconditionally. A fix that
+ * special-cases "any truthy shareToken skips the check" reopens the same
+ * cross-tenant disclosure for any caller who holds a share token for some
+ * website of their own -- it grants access to an unrelated website's replay
+ * data using a token that was never scoped to it. Mocking
+ * canViewAuthenticatedWebsite to false isolates this from the real
+ * share-token validation logic (covered separately by permissions/share.test
+ * .ts) and asserts purely that the route defers to it rather than bypassing
+ * it based on the mere presence of a token.
+ */
+test('GET does not fetch session replays for a caller whose share token does not cover this website', async () => {
+  parseRequestMock.mockResolvedValue({
+    auth: { user: { id: 'attacker-1' }, shareToken: { websiteId: 'attacker-own-website' } },
+    query: {},
+    error: undefined,
+  });
+  canViewAuthenticatedWebsiteMock.mockResolvedValue(false);
+
+  const response = await GET(
+    new Request('http://localhost/api/websites/other-orgs-website/sessions/session-1/replays'),
+    { params: Promise.resolve({ websiteId: 'other-orgs-website', sessionId: 'session-1' }) },
+  );
+
+  expect(response.status).toBe(401);
+  expect(getSessionReplaysMock).not.toHaveBeenCalled();
+});
+
+/**
  * What: confirms legitimate access still works -- a caller who is authorized
  * for the website still gets its session replays.
  * How: hits the real exported GET handler with canViewAuthenticatedWebsite
