@@ -117,3 +117,10 @@ RUN rm -rf /app/.git \
 # === task dependencies (edit me) ===
 # Install repo + verifier deps (no network at verify time), e.g.
 # `uv sync --all-extras --all-groups` or `uv pip install --system pytest`.
+
+# umami pins pnpm 12.3.4 via package.json::engines.pnpm. Install it with
+# corepack (network is available at build time) and run a full install so
+# node_modules is baked into the image -- vitest needs no network at verify.
+RUN corepack enable \
+ && corepack prepare pnpm@12.3.4 --activate
+RUN pnpm install --frozen-lockfile

@@ -1,6 +1,24 @@
-# The golden patch that closes the vulnerability. Applied by solution/solve.sh
-# (via `git apply`, falling back to `patch -p1`) against the repo at
-# base_commit. It must turn config.json::fail_to_pass green while keeping
-# pass_to_pass green. Generate it from your fix, e.g.:
-#   git diff > solution/gold_patch.diff
-# Replace this file with that diff (these comment lines are a placeholder).
+diff --git a/src/app/api/websites/[websiteId]/sessions/[sessionId]/replays/route.ts b/src/app/api/websites/[websiteId]/sessions/[sessionId]/replays/route.ts
+index aa614559d..f57446df3 100644
+--- a/src/app/api/websites/[websiteId]/sessions/[sessionId]/replays/route.ts
++++ b/src/app/api/websites/[websiteId]/sessions/[sessionId]/replays/route.ts
+@@ -1,6 +1,7 @@
+ import { getQueryFilters, parseRequest } from '@/lib/request';
+-import { json } from '@/lib/response';
++import { json, unauthorized } from '@/lib/response';
+ import { pagingParams, searchParams, withDateRange } from '@/lib/schema';
++import { canViewAuthenticatedWebsite } from '@/permissions';
+ import { getSessionReplays } from '@/queries/sql';
+ 
+ export async function GET(
+@@ -20,6 +21,10 @@ export async function GET(
+ 
+   const { websiteId, sessionId } = await params;
+ 
++  if (!(await canViewAuthenticatedWebsite(auth, websiteId))) {
++    return unauthorized();
++  }
++
+   const filters = await getQueryFilters(query, websiteId);
+ 
+   const data = await getSessionReplays(websiteId, filters, sessionId);

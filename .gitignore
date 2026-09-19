@@ -1,0 +1,8 @@
+jobs/
+qc_artifacts/
+.rv/
+.seaworthy/cache/
+*.zip
+node_modules/
+**/node_modules/
+environment/repo/tests/api/coverage/report/

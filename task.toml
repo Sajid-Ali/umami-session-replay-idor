@@ -4,17 +4,17 @@ schema_version = "1.1"
 name = "shield/umami-session-replay-idor"
 description = ""
 keywords = []
-authors = []
+authors = [{ name = "Sajid Ali", email = "saal165@expert.micro1.ai" }]
 
 [metadata]
 source = "m1-rl-envs"
 environment_id = "shield"
-task_id = ""
+task_id = "1476"
 instance_id = "umami-session-replay-idor"
 # cyberswe repo is the self-contained task slug (== instance_id), not a URL.
 repo = "umami-session-replay-idor"
 base_commit = ""
-repo_language = "python"
+repo_language = "typescript"
 cyberswe_version = "2"
 
 [verifier]

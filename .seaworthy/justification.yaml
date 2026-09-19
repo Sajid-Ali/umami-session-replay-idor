@@ -1,0 +1,53 @@
+version: 1
+checks:
+  cyberswe/probe-altsolve:
+    reason: >-
+      The probe's alternative (returning forbidden()/403 instead of
+      unauthorized()/401) is not equally valid for this codebase: I grepped
+      every call site and found unauthorized()/401 is used at all 107
+      existing ownership/permission-check guards across the [websiteId]-scoped
+      routes (the canViewWebsite/canViewAuthenticatedWebsite/canDeleteWebsite
+      family), with zero exceptions. forbidden()/403 exists in this codebase
+      but is used only 3 times, and never for this class of check -- only for
+      unrelated policy denials (IP blocklist in send/record, org-level 2FA
+      requirement in 2fa/disable). A fix that returns 403 here breaks a
+      100%-consistent codebase convention specific to this exact check, which
+      is why the minimal/correct fix (see reasoning.txt) is the literal
+      restoration of the original line -- same helper, same status code --
+      not a plausible-looking substitute. The status-code assertion is not
+      the only gate in the fail_to_pass tests: both also assert the sink
+      (getSessionReplays) is never called, so any fix that closes the
+      cross-tenant data leak by gating the sink at all, but does so with a
+      401, still passes; only a fix that deviates from the codebase's own
+      established status-code convention for this check family is rejected,
+      which is intentional, not overspecification.
+
+# cyberswe/pass-to-pass-target — what a good answer says:
+#   Accept a concrete reason this repository cannot supply more regression
+#   tests: the package is small and its whole suite is already listed, the
+#   rest of the suite needs network, hardware, or services the container does
+#   not have, it is too slow to run inside the verifier timeout, or the
+#   remaining tests are known to be flaky. Reject an assertion that the suite
+#   is wide enough, with no count and no reason it cannot grow.
+#
+# Remove '# ' from the answer block below and fill in reason.
+# Uncomment 'checks:' above if needed. For an existing checks mapping,
+# place the answer inside it; replace 'checks: {}' with 'checks:'.
+#   cyberswe/pass-to-pass-target:
+#     reason: >-
+#       <why this finding does not make the task unfit for use>
+
+# cyberswe/pass-to-pass-thin — what a good answer says:
+#   This suite is under half the target. Accept only a reason the suite
+#   cannot be widened at all: the package has almost no other tests, or
+#   everything else needs a service, device, or runtime the container does
+#   not have. Reject a reason that would merely excuse falling a little
+#   short, and reject a response that does not say how many tests the
+#   repository actually has.
+#
+# Remove '# ' from the answer block below and fill in reason.
+# Uncomment 'checks:' above if needed. For an existing checks mapping,
+# place the answer inside it; replace 'checks: {}' with 'checks:'.
+#   cyberswe/pass-to-pass-thin:
+#     reason: >-
+#       <why this finding does not make the task unfit for use>

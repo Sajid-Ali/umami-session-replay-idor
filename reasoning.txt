@@ -1,33 +1,107 @@
 # Attack Vector
 
-In simple terms, the steps of the attack are...[walk through it step by step (numbered list would be nice here): where the attacker starts, what they send, what the system does wrong]
+In simple terms, the steps of the attack are:
 
-This allows an attacker to... [the concrete impact, what they can read, write, run, or break]
+1. Attacker holds a normal, legitimate Umami account (of their own,
+   completely unrelated organization/team) — no elevated role or special
+   access is needed.
+2. Attacker sends `GET /api/websites/<victim-websiteId>/sessions/<any-sessionId>/replays`,
+   substituting a `websiteId` belonging to a different organization they have
+   no relationship to — a value they can obtain by, for example, observing it
+   in a public share link, a support request, or simple sequential-ish UUID
+   enumeration.
+3. The route handler calls `getQueryFilters(query, websiteId)` and then
+   `getSessionReplays(websiteId, filters, sessionId)` directly — it no longer
+   calls `canViewAuthenticatedWebsite(auth, websiteId)` first, so nothing
+   verifies the caller has any relationship to that website.
+4. `getSessionReplays`'s underlying SQL/ClickHouse query filters purely by
+   `sr.website_id = {{websiteId}}` — it has no join or condition tying the
+   result to the caller's identity — so it returns the victim website's
+   session-replay listing (visit timing, duration, browser/OS/device,
+   country/city, replay chunk counts) to the attacker's request.
 
-The exploit test that demonstrates this is... [name the test in tests/base_tests/; add one Attack Vector section per seeded flaw and pair each with its test]
+This allows an attacker to read cross-organization session-replay metadata for
+any website on the instance, with no relationship to that website required —
+a real self-hosted analytics platform where this discloses potentially
+sensitive information about a completely unrelated customer's traffic and
+visitors, using nothing but the attacker's own valid, unrelated account.
+
+The exploit tests that demonstrate this, both in
+`src/app/api/websites/[websiteId]/sessions/[sessionId]/replays/route.test.ts`,
+are:
+- `GET does not fetch session replays for a website the caller cannot view`
+  — the outcome angle: asserts the response is `401`, the sink
+  `getSessionReplays` is never called, and the response body carries no
+  `data` key.
+- `GET checks ownership against the actual websiteId from the URL, not
+  another value` — the correctness-of-check angle: asserts the permission
+  function is actually invoked with the real `websiteId`, not a wrong or
+  hardcoded value, closing off an incomplete fix that re-adds *a* check
+  without validating the right thing.
+
+**Verified by actual execution**: both tests fail against the seeded code —
+the first with `expected 200 to be 401`, the second with the mock recording
+zero calls — and both pass once the check is restored. A third test in the
+same file, and four more across the sibling routes `replays/route.ts` and
+`replays/[replayId]/route.ts`, confirm legitimate access is unaffected at
+both the seeded and reverted state.
 
 # Root Cause
 
-Classification: [the CWE and/or OWASP identifier, e.g. CWE-639 / OWASP A01:2021 — Broken Access Control]
+Classification: CWE-639 (Authorization Bypass Through User-Controlled Key) /
+OWASP A01:2025 — Broken Access Control.
 
-This attack is possible because... [the underlying defect, not the symptom, the specific code, config, or design decision that's wrong]
+This attack is possible because the single call to
+`canViewAuthenticatedWebsite(auth, websiteId)` was removed from this route
+handler, along with its now-unused import. Confirmed by inspecting every
+`[websiteId]`-scoped route in this codebase (70+ files): every single one of
+them calls one of a small set of permission-check helpers before touching
+data — this route is the sole exception. The underlying query,
+`getSessionReplays`, provides no independent protection of its own: it
+filters strictly by the `websiteId` value it's given, with no join back to
+the caller's identity, so the route-level check is the *only* place this
+boundary is enforced. The defect is invisible from reading this one file in
+isolation — a route that parses a request, extracts params, and queries data
+looks completely ordinary — it's only visible by noticing this route is
+missing the one line every structurally identical sibling route has.
 
 # Fix rationale
 
-This can be fixed by... [the minimum change that closes the hole]
+This can be fixed by restoring the `canViewAuthenticatedWebsite(auth,
+websiteId)` check (and its import) immediately after resolving `websiteId`,
+returning `unauthorized()` when it resolves to `false`, exactly as it appears
+in every sibling route.
 
-This is the minimal fix because... [why nothing smaller works, and why nothing more is needed]
+This is the minimal fix because it is the exact reversal of what was
+seeded — a single guard clause restored to its original position, using the
+same permission helper this codebase already defines and every sibling route
+already calls. Nothing smaller works, because the underlying query is the
+`getSessionReplays` sink and, as confirmed above, performs zero identity
+checks of its own — any fix that doesn't gate the call to it (e.g. filtering
+results after the fact, or relying on some other assumed-but-nonexistent
+check) leaves the actual data fetch reachable by an unauthorized caller.
+Nothing more is needed, because `canViewAuthenticatedWebsite` already
+correctly implements the full ownership/team-membership check this route
+requires (confirmed by tracing it through to `canViewWebsite`'s real,
+DB-backed `user.id === entity.userId` / `getTeamUser` logic, and by the 56
+pre-existing, unmodified tests in `website.test.ts`/`share.test.ts` that
+already exercise admin bypass, ownership, and team-membership against that
+real logic) — there is no partial or narrower version of this check that
+would be more "minimal" while still closing the hole.
 
 # Alternatives considered
 
 ## Alternative 1
-[a fix that looks reasonable]
-This doesn't work because... [how it's bypassed, or what it leaves open]
+Add the ownership check inside `getSessionReplays` itself (the query/DB layer) instead of the route handler — e.g. join against a `website` table filtered by the caller's `userId`/`teamId` directly in the SQL.
+
+This doesn't work as the correct minimal fix because `getSessionReplays` is a shared query function also called from the sibling `replays/route.ts` (the no-`sessionId` listing endpoint), which is confirmed still correctly gated by its own `canViewAuthenticatedWebsite` call and covered by this task's pass_to_pass tests. Pushing the check into the query would require passing caller-identity parameters through a function whose signature and both call sites don't currently carry them, duplicating logic that already exists correctly at the permission layer, and would leave `canViewAuthenticatedWebsite` — the project's single, tested, shared authorization primitive (share-token support, admin bypass, team membership, all included, and covered by 56 of its own tests) — unused for this specific path while every other route in the codebase keeps relying on it. It also doesn't fully close the hole on its own unless done correctly for both the relational and ClickHouse query variants independently, doubling the surface for a partial fix to slip through — and if it re-derives the ownership check incorrectly (e.g. checking `userId` only, missing the team-membership path), it would still fail the second fail_to_pass test's argument-correctness assertion or the broadened `website.test.ts`/`share.test.ts` pass_to_pass suite.
 
 ## Alternative 2
-[a fix that looks reasonable]
-This doesn't work because... [how it's bypassed, or what it leaves open]
+Add a global Next.js middleware that inspects the URL for a `websiteId` segment and validates it against the caller's session before any route handler runs.
+
+This doesn't work as a targeted fix here because it's disproportionate to the actual defect (one route missing one call) and introduces a new, untested, cross-cutting mechanism that would need to correctly parse every differently-shaped route under `/api/websites/[websiteId]/**` — including ones that use `shareToken`-based access rather than a logged-in `user` (per `canViewWebsite`'s share-token branch), which a generic path-based middleware would need to reimplement rather than reuse. Getting this right requires re-deriving logic that `canViewAuthenticatedWebsite` and `canViewWebsite` already provide correctly, and a subtle mismatch between the middleware's matching logic and this route's actual parameter (`websiteId` vs. some other path segment name elsewhere) would either fail open on some routes or incorrectly reject legitimate share-token access on others — exactly the failure mode the broadened pass_to_pass suite (sibling routes plus the full real permission-logic test files) is designed to catch.
 
 ## Alternative 3
-[a fix that looks reasonable]
-This doesn't work because... [how it's bypassed, or what it leaves open]
+Leave the route as-is, but strip identifying details (browser, OS, city, country) from the response so it "only" leaks aggregate counts, not granular visitor data.
+
+This doesn't work because it doesn't close the authorization gap at all — it only reduces the sensitivity of one specific field set in one specific response shape, while the actual defect (an unauthenticated-to-this-resource caller reaching a shared data-fetch function for an arbitrary `websiteId`) remains fully exploitable. Both fail_to_pass tests' assertions — that `getSessionReplays` is never called, and that the permission check is invoked with the real `websiteId` — would still fail identically, since the mocked call is made regardless of what fields the final JSON response happens to include. It also sets a bad precedent: the correct boundary is "can this caller see this website's data at all," not "which subset of that data is embarrassing enough to redact."
