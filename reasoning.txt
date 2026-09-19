@@ -1,0 +1,33 @@
+# Attack Vector
+
+In simple terms, the steps of the attack are...[walk through it step by step (numbered list would be nice here): where the attacker starts, what they send, what the system does wrong]
+
+This allows an attacker to... [the concrete impact, what they can read, write, run, or break]
+
+The exploit test that demonstrates this is... [name the test in tests/base_tests/; add one Attack Vector section per seeded flaw and pair each with its test]
+
+# Root Cause
+
+Classification: [the CWE and/or OWASP identifier, e.g. CWE-639 / OWASP A01:2021 — Broken Access Control]
+
+This attack is possible because... [the underlying defect, not the symptom, the specific code, config, or design decision that's wrong]
+
+# Fix rationale
+
+This can be fixed by... [the minimum change that closes the hole]
+
+This is the minimal fix because... [why nothing smaller works, and why nothing more is needed]
+
+# Alternatives considered
+
+## Alternative 1
+[a fix that looks reasonable]
+This doesn't work because... [how it's bypassed, or what it leaves open]
+
+## Alternative 2
+[a fix that looks reasonable]
+This doesn't work because... [how it's bypassed, or what it leaves open]
+
+## Alternative 3
+[a fix that looks reasonable]
+This doesn't work because... [how it's bypassed, or what it leaves open]

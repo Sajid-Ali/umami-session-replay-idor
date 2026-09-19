@@ -1,0 +1,27 @@
+{
+  "//": "JSON has no comments, so keys starting with // are inline docs. The verifier ignores them (extra keys are allowed; test.sh reads only the real keys). Leave or delete them freely.",
+
+  "before_repo_set_cmd": "",
+  "// before_repo_set_cmd": "Optional shell run before scoring (e.g. checkout gold tests). Usually blank.",
+
+  "selected_test_files_to_run": [],
+  "// selected_test_files_to_run": "Whole test files for the DEFAULT pytest path. Only used when test_cmd is empty; ignored otherwise.",
+
+  "fail_to_pass": [],
+  "pass_to_pass": [],
+  "// fail_to_pass / pass_to_pass": "Test IDs that must flip-green (F2P) / stay-green (P2P). Use the EXACT IDs your log_parser emits -- run the parser on a sample of your test output once and copy them. Format is parser-specific: pytest 'tests/t.py::test_x'; junit 'com.pkg.FooTest testBar' (SPACE-joined); cargo 'tests::my_test'; jest = leaf description only; C# 'Ns.Class.Method'.",
+
+  "test_cmd": [],
+  "// test_cmd": "Command(s) the verifier runs in the repo. A string, or a list of strings to run in order. Empty -> falls back to pytest over selected_test_files_to_run.",
+  "// test_cmd: python": "pytest -v",
+  "// test_cmd: js / ts": "npx jest --verbose   (vitest: npx vitest run)",
+  "// test_cmd: go": "go test ./... -v",
+  "// test_cmd: rust": "cargo test",
+  "// test_cmd: c#": "dotnet test --logger 'console;verbosity=detailed' --nologo",
+  "// test_cmd: c (TAP)": "make check   (or run a binary that prints 'ok N - name' / 'not ok N - name')",
+  "// test_cmd: c++ (gtest)": "./your_test_binary",
+  "// test_cmd: java": "maven/gradle write JUnit XML to files, NOT stdout -- run the build then cat the reports so the parser sees them. Use a list: [\"mvn test -B -Dmaven.test.failure.ignore=true\", \"find . -path '*surefire-reports*' -name 'TEST-*.xml' -exec cat {} +\"] with log_parser=parse_log_junit.",
+
+  "log_parser": "parse_log_pytest",
+  "// log_parser": "Parser matching your runner's output. Common: parse_log_pytest | parse_log_jest | parse_log_vitest | parse_log_gotest | parse_log_cargo | parse_log_junit (java/surefire) | parse_log_csharp | parse_log_googletest | parse_log_bash (TAP). Full list: NAME_TO_PARSER in tests/log_parsers.py."
+}

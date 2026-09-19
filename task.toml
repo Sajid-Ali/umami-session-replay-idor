@@ -1,0 +1,44 @@
+schema_version = "1.1"
+
+[task]
+name = "shield/umami-session-replay-idor"
+description = ""
+keywords = []
+authors = []
+
+[metadata]
+source = "m1-rl-envs"
+environment_id = "shield"
+task_id = ""
+instance_id = "umami-session-replay-idor"
+# cyberswe repo is the self-contained task slug (== instance_id), not a URL.
+repo = "umami-session-replay-idor"
+base_commit = ""
+repo_language = "python"
+cyberswe_version = "2"
+
+[verifier]
+timeout_sec = 3000.0
+
+[agent]
+timeout_sec = 3600.0
+
+[environment]
+build_timeout_sec = 1800.0
+cpus = 1
+memory_mb = 4096
+storage_mb = 10240
+gpus = 0
+# Was "no-network" — a silent no-op on the old harbor fork, but honored on
+# upstream harbor (>=0.13), where it breaks the opencode install (which curls
+# nvm/npm at trial start). Kept on "public" so agent runs work on the docker
+# executor. True network isolation needs e2b (allowlist/dynamic policy) or an
+# upstream change to make the agent install skippable.
+network_mode = "public"
+mcp_servers = []
+
+[verifier.env]
+
+[environment.env]
+
+[solution.env]

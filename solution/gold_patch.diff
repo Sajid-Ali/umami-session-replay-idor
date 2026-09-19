@@ -1,0 +1,6 @@
+# The golden patch that closes the vulnerability. Applied by solution/solve.sh
+# (via `git apply`, falling back to `patch -p1`) against the repo at
+# base_commit. It must turn config.json::fail_to_pass green while keeping
+# pass_to_pass green. Generate it from your fix, e.g.:
+#   git diff > solution/gold_patch.diff
+# Replace this file with that diff (these comment lines are a placeholder).
