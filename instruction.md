@@ -1,10 +1,4 @@
-<!--
-Agent-facing problem statement. For cyberswe the agent works a security task in
-a self-contained repo (== instance_id) at base_commit. State the surface and
-the security goal; do NOT reveal the vulnerability or the fix. Delete this
-whole comment — lint fails if it remains, since the agent sees this file
-verbatim.
--->
+A customer of our self-hosted Umami instance reported that they briefly saw session-replay data for a website that isn't theirs when they tried a URL with a different site ID in it. Can you find out how that's possible and fix it so replay data is only ever returned for websites the requesting user actually has permission to view?
 
 ## Ground rules
 
