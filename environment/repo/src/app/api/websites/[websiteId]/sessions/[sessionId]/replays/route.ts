@@ -1,5 +1,5 @@
 import { getQueryFilters, parseRequest } from '@/lib/request';
-import { json } from '@/lib/response';
+import { json, unauthorized } from '@/lib/response';
 import { pagingParams, searchParams, withDateRange } from '@/lib/schema';
 import { getSessionReplays } from '@/queries/sql';
 
@@ -19,6 +19,10 @@ export async function GET(
   }
 
   const { websiteId, sessionId } = await params;
+
+  if (!auth.user) {
+    return unauthorized();
+  }
 
   const filters = await getQueryFilters(query, websiteId);
 
